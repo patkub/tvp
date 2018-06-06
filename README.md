@@ -4,10 +4,12 @@
 
 ## TVPapi
 
-Download full series from vod.tvp.pl using public api.
+Download full series from vod.tvp.pl using public api
 
 ### Example:
 ```python
+from tvpapi import *
+
 if __name__ == '__main__':
   info = TVPApi("http://rodzinka.vod.tvp.pl/")
   episodes = info.get_episodes()
