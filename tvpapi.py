@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import re
+import string
 
 class TVPApi:
   def __init__(self, url, dest="downloads/", api_listing="http://www.api.v3.tvp.pl/shared/listing.php?dump=json&count&parent_id=", api_tokenizer="http://www.tvp.pl/shared/cdn/tokenizer_v2.php?object_id="):
@@ -54,9 +55,21 @@ class TVPApi:
       self.episodes[season]["episode_ids"] = list()
 
       for item in endpoint_json["items"]:
-        # title format: Series - S01E001
-        title_re = re.search("(.*), odc. (.*)", item["title_root"])
-        title = title_re.group(1).title() + " - " + season.capitalize() + "E" + title_re.group(2)
+        # title format: Series - E001
+        if "website_title" in item and "original_title" in item:
+          title = item["website_title"]
+          episode_num = item["original_title"]
+        elif "website_title" in item and "web_name" in item:
+          title = item["website_title"]
+          episode_re = re.search("odc(-*)(\d*)", item["web_name"])
+          episode_num = episode_re.group(2)
+        else:
+          print(item)
+          raise Exception('Cannot find episode title.')
+
+        title = string.capwords(title) + " - E" + episode_num.zfill(3)
+        #print(title)
+
         episode = {'asset_id': item["asset_id"], 'title': title}
         self.episodes[season]["episode_ids"].append(episode)
 
