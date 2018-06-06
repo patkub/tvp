@@ -27,7 +27,7 @@ class TVPApi:
     endpoint_json = endpoint_resp.json()
 
     for item in endpoint_json["items"]:
-      if item["title"] == "odcinki":
+      if item["title"] == "odcinki" or item["title"] == "serie":
         self.series_episodes_id = str(item["asset_id"])
         break
 
