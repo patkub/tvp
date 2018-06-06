@@ -55,7 +55,8 @@ class TVPApi:
 
       for item in endpoint_json["items"]:
         # title format: Series - S01E001
-        title = item["website_title"].capitalize() + " - " + season.capitalize() + "E" + item["web_name"][3:].zfill(3)
+        title_re = re.search("(.*), odc. (.*)", item["title_root"])
+        title = title_re.group(1).title() + " - " + season.capitalize() + "E" + title_re.group(2)
         episode = {'asset_id': item["asset_id"], 'title': title}
         self.episodes[season]["episode_ids"].append(episode)
 
