@@ -3,6 +3,7 @@ import requests
 import re
 import string
 import os
+from collections import OrderedDict
 
 class TVPApi:
   def __init__(self, url, dest="downloads/", api_listing="http://www.api.v3.tvp.pl/shared/listing.php?dump=json&count&parent_id=", api_tokenizer="http://www.tvp.pl/shared/cdn/tokenizer_v2.php?object_id="):
@@ -51,25 +52,39 @@ class TVPApi:
     # store season ids
     self.episodes = dict()
     for item in endpoint_json["items"]:
-      self.episodes[item["title"]] = {'season_id': str(item["asset_id"])}
+      season = item["title"]
+
+      season_roman = re.search("[IVXLCDM]+", season)
+      if season_roman is not None:
+        # season is a roman numeral, convert roman numerals
+        season = str(self.roman_to_int(season_roman.group(0)))
+
+      # season filter only number
+      season = re.search("\d+", season).group(0)
+
+      # strip leading zeros and leading and trailing spaces
+      season = season.lstrip("0").strip()
+
+      # store season id
+      self.episodes[season] = {'season_id': str(item["asset_id"])}
 
   def get_season_episode_ids(self):
     for season, v in self.episodes.items():
       endpoint_resp = requests.get(self.api_listing + v["season_id"])
       endpoint_json = endpoint_resp.json()
-      self.episodes[season]["episode_ids"] = list()
+      self.episodes[season]["episodes"] = dict()
 
       for item in endpoint_json["items"]:
-        # title format: Series - S01E001
         if "website_title" in item:
           title = string.capwords(item["website_title"])
           if "original_title" in item:
             episode_num = item["original_title"]
           elif "web_name" in item:
             episode_num = item["web_name"]
+          else:
+            raise Exception('Cannot find episode title:\n' + str(item))
         else:
-          print(item)
-          raise Exception('Cannot find episode title.')
+          raise Exception('Cannot find episode title:\n' + str(item))
 
         episode_num = re.search("([^\d]*)(\d*)", episode_num).group(2)
         season_num = season.strip()
@@ -82,10 +97,15 @@ class TVPApi:
         # season filter only number
         season_num = re.search("\d+", season_num).group(0)
 
-        # store episode id and title
+        # title format: Series - S01E001
         title = string.capwords(title) + " - S" + season_num.zfill(2) + "E" + episode_num.zfill(3)
+
+        # store episode id and title
         episode = {'asset_id': item["asset_id"], 'title': title}
-        self.episodes[season]["episode_ids"].append(episode)
+        self.episodes[season]["episodes"][int(episode_num)] = episode
+
+      # sort episodes by episode number
+      self.episodes[season]["episodes"] = OrderedDict(sorted(self.episodes[season]["episodes"].items(), key=lambda t: int(t[0])))
 
   def get_episodes(self):
     # get api data
@@ -93,9 +113,34 @@ class TVPApi:
     self.get_episodes_id()
     self.get_season_ids()
     self.get_season_episode_ids()
+    print()
 
-    # sort
-    return sorted(self.episodes.items())
+    # sort episodes by season
+    self.episodes = OrderedDict(sorted(self.episodes.items(), key=lambda t: int(t[0])))
+
+    return self.episodes
+
+  def get_season_episodes(self, season):
+    season = str(season)
+    if season not in self.episodes:
+      raise Exception('Cannot find season: ' + season)
+
+    return self.episodes[season]['episodes']
+
+  def download_season(self, season):
+    season_episodes = self.get_season_episodes(season)
+
+    for k, v in season_episodes.items():
+      self.download(v['asset_id'], v['title'])
+
+  def download_episode(self, season, episode):
+    season_episodes = self.get_season_episodes(season)
+
+    if episode not in season_episodes:
+      raise Exception('Cannot find episode: ' + str(episode))
+
+    episode_info = season_episodes[episode]
+    self.download(episode_info['asset_id'], episode_info['title'])
 
   def download(self, episode_id, title):
     endpoint_resp = requests.get(self.api_tokenizer + str(episode_id))
@@ -144,8 +189,8 @@ if __name__ == '__main__':
   info = TVPApi("http://rodzinka.vod.tvp.pl/")
   episodes = info.get_episodes()
 
-  for item in episodes:
-    episode_ids = item[1]["episode_ids"]
+  # download entire season 1
+  info.download_season(1)
 
-    for episode in episode_ids:
-      info.download(episode["asset_id"], episode["title"])
+  # download season 2 episode 28
+  info.download_episode(2, 28)
