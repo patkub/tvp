@@ -72,7 +72,7 @@ class TVPApi:
     for season, v in self.episodes.items():
       endpoint_resp = requests.get(self.api_listing + v["season_id"])
       endpoint_json = endpoint_resp.json()
-      self.episodes[season]["episodes"] = dict()
+      self.episodes[season]["episodes"] = list()
 
       for item in endpoint_json["items"]:
         if "website_title" in item:
@@ -101,11 +101,11 @@ class TVPApi:
         title = string.capwords(title) + " - S" + season_num.zfill(2) + "E" + episode_num.zfill(3)
 
         # store episode id and title
-        episode = {'asset_id': item["asset_id"], 'title': title}
-        self.episodes[season]["episodes"][int(episode_num)] = episode
+        episode = {'asset_id': item["asset_id"], 'title': title, 'episode': int(episode_num)}
+        self.episodes[season]["episodes"].append(episode)
 
       # sort episodes by episode number
-      self.episodes[season]["episodes"] = OrderedDict(sorted(self.episodes[season]["episodes"].items(), key=lambda t: int(t[0])))
+      self.episodes[season]["episodes"] = sorted(self.episodes[season]["episodes"], key=lambda t: int(t['episode']))
 
   def get_episodes(self):
     # get api data
@@ -127,11 +127,35 @@ class TVPApi:
 
     return self.episodes[season]['episodes']
 
-  def download_season(self, season):
-    season_episodes = self.get_season_episodes(season)
+  def get_season_first_episode(self, season):
+    season = str(season)
+    if season not in self.episodes:
+      raise Exception('Cannot find season: ' + season)
 
-    for k, v in season_episodes.items():
-      self.download(v['asset_id'], v['title'])
+    return self.episodes[season]['episodes'][0]['episode']
+
+  def get_season_last_episode(self, season):
+    season = str(season)
+    if season not in self.episodes:
+      raise Exception('Cannot find season: ' + season)
+
+    return self.episodes[season]['episodes'][-1]['episode']
+
+  def download_season(self, season, start_episode=None):
+    season_episodes = self.get_season_episodes(season)
+    first_episode = self.get_season_first_episode(season)
+    last_episode = self.get_season_last_episode(season)
+
+    if start_episode is not None:
+      if start_episode < first_episode or start_episode > last_episode:
+        raise Exception('Start episode ' + str(start_episode) + ' is out of range ' + str(first_episode) + ' to ' +  str(last_episode))
+
+      # start downloading from start_episode
+      first_episode = season_episodes[0]['episode']
+      season_episodes = season_episodes[(start_episode - first_episode):]
+
+    for item in season_episodes:
+      self.download(item['asset_id'], item['title'])
 
   def download_episode(self, season, episode):
     season_episodes = self.get_season_episodes(season)
