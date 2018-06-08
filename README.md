@@ -13,12 +13,15 @@ from tvpapi import *
 if __name__ == '__main__':
   info = TVPApi("http://rodzinka.vod.tvp.pl/")
   episodes = info.get_episodes()
-  
-  for item in episodes:
-    episode_ids = item[1]["episode_ids"]
-    
-    for episode in episode_ids:
-      info.download(episode["asset_id"], episode["title"])
+
+  # download entire season 1
+  info.download_season(1)
+
+  # download season 5 starting from episode 65
+  info.download_season(5, 65)
+
+  # download season 2 episode 28
+  info.download_episode(2, 28)
 ```
 
 ## TVPScraper
