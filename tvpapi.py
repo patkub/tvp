@@ -159,11 +159,12 @@ class TVPApi:
 
   def download_episode(self, season, episode):
     season_episodes = self.get_season_episodes(season)
+    first_episode = self.get_season_first_episode(season)
+    episode_info = season_episodes[(episode - first_episode)]
 
-    if episode not in season_episodes:
+    if episode_info is None:
       raise Exception('Cannot find episode: ' + str(episode))
 
-    episode_info = season_episodes[episode]
     self.download(episode_info['asset_id'], episode_info['title'])
 
   def download(self, episode_id, title):
